@@ -1075,8 +1075,8 @@ const FULL_CAPABILITIES: ModelCapabilities = Object.freeze({
  *   derive this from `subscriptionIncludesExtendedContext` in models.ts so the
  *   advertised window matches what the proxy actually routes to. Sonnet 5+
  *   runs with a native 1M window on every plan (#1212); Sonnet 4.6 stays 200k
- *   because its 1M variant is billed as Extra Usage, and Haiku has no 1M
- *   variant at all.
+ *   because its 1M variant is billed as Extra Usage. Haiku 5.5 has a native
+ *   1M window without a [1m] suffix; legacy 4.5 is 200k.
  */
 export function buildModelList(extendedContextIncluded: boolean, now = Math.floor(Date.now() / 1000)): OpenAiModel[] {
   return [
@@ -1172,6 +1172,18 @@ export function buildModelList(extendedContextIncluded: boolean, now = Math.floo
       display_name: "Claude Fable 5",
       context_window: extendedContextIncluded ? 1_000_000 : 200_000,
       capabilities: FULL_CAPABILITIES,
+    },
+    {
+      id: "claude-haiku-5-5",
+      object: "model",
+      created: now,
+      owned_by: "anthropic",
+      display_name: "Claude Haiku 5.5",
+      context_window: 1_000_000,
+      capabilities: {
+        ...FULL_CAPABILITIES,
+        thinking: { supported: true, types: { adaptive: { supported: true }, enabled: { supported: false } } },
+      },
     },
     {
       id: "claude-haiku-4-5",

@@ -13,7 +13,7 @@ import { profileFactsJs } from "./profileFacts"
 import { profileFindJs } from "./profileFind"
 import { reorderClientJs, reorderCss, reorderLiveRegionHtml } from "./profileOrder"
 import { DEFAULT_PROFILE_SORT, PROFILE_SORT_MODES } from "./profileSort"
-import { FADE_FROM, GENERAL_WINDOW_TYPES, SPENT_AT } from "./profileSpent"
+import { FADE_FROM, GENERAL_WINDOW_TYPES, SPENT_AT, isUnusableJs } from "./profileSpent"
 
 export const landingHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -44,6 +44,11 @@ export const landingHtml = `<!DOCTYPE html>
   /* min() lets a single column shrink below 300px: a phone at 320px has only
      272px inside the container, and a fixed 300px track scrolled the page. */
   .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 16px; margin-bottom: 24px; }
+  /* Wide layout: a card stays about as wide as in the contained column, where
+     a 960px row holds two of about 448px, and a row takes as many as fit.
+     auto-fill keeps empty tracks, so a short list keeps its card size instead
+     of stretching across the window. */
+  html[data-layout="wide"] .profile-grid { grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr)); }
   .profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
     padding: 18px 20px; position: relative; transition: border-color 0.15s; }
   .profile-card.switchable { cursor: pointer; }
@@ -136,6 +141,12 @@ export const landingHtml = `<!DOCTYPE html>
     .profile-head { position: relative; }
     .prof-info { position: static; }
     .prof-pop { left: 0; right: 0; min-width: 0; }
+  }
+  /* A phone shows one card per row, each packed with usage rows and chips,
+     so the page edge and the card's own padding give that room back. */
+  @media (max-width: 720px) {
+    .container { padding-left: 8px; padding-right: 8px; }
+    .profile-card { padding: 9px 10px; }
   }
   .profile-sub { font-size: 11px; color: var(--muted); text-align: right; margin-bottom: 12px; }
   .usage-row { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 4px 0; }
@@ -238,7 +249,7 @@ function resetIn(ts){if(ts==null)return '';var d=ts-Date.now();if(d<=0)return 'r
 var GENERAL_WINDOW_TYPES=${JSON.stringify(GENERAL_WINDOW_TYPES)};
 var FADE_FROM=${FADE_FROM};
 var SPENT_AT=${SPENT_AT};
-function isUnusable(p){if(p.loggedIn===false)return true;return p.error==='no_token'}
+${isUnusableJs}
 function generalUtilization(windows){
   var worst=null;
   for(var i=0;i<(windows||[]).length;i++){

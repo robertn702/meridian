@@ -18,7 +18,7 @@ export const settingsPageHtml = `<!DOCTYPE html>
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
          color: var(--text); padding: 0; line-height: 1.5; }
   ${profileBarCss}
-  .content { max-width: 900px; margin: 0 auto; padding: 24px; }
+  .container { max-width: 900px; margin: 0 auto; padding: 24px; }
   h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
   .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
   .nav { display: flex; gap: 16px; margin-bottom: 24px; font-size: 13px; }
@@ -55,6 +55,11 @@ export const settingsPageHtml = `<!DOCTYPE html>
 
   .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 600px) { .feature-grid { grid-template-columns: 1fr; } }
+  /* Wide layout: two columns across the whole window put a toggle a thousand
+     pixels from its label, so rows keep their contained width and add columns.
+     The pricing table sizes to its columns for the same reason. */
+  html[data-layout="wide"] .feature-grid { grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); }
+  html[data-layout="wide"] .pricing-table { width: auto; }
 
   .feature-row {
     display: flex; align-items: center; justify-content: space-between;
@@ -102,18 +107,24 @@ export const settingsPageHtml = `<!DOCTYPE html>
   }
   .reset-btn:hover { border-color: var(--red); color: var(--red); }
 
-  /* Model pricing. Four fixed-width rate inputs cannot shrink to a phone
-     viewport, so the table scrolls inside its card instead of the page. */
+  /* Model pricing. Four rate inputs cannot shrink to a phone viewport, so
+     the table scrolls inside its card instead of the page, and a model id
+     stays on one line rather than breaking into a column of fragments.
+     A rate is a few digits ($/Mtok such as 123.45), so its input is sized
+     to that; the spinner, useless at a 0.01 step, would cover the digits. */
   .pricing-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
   .pricing-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .pricing-table th { text-align: left; padding: 8px 10px; color: var(--muted); font-weight: 500;
     font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
   .pricing-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); }
   .pricing-table tr:last-child td { border-bottom: none; }
-  .pricing-model { font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; font-size: 12px; word-break: break-all; }
+  .pricing-model { font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; font-size: 12px; white-space: nowrap; }
   .pricing-input { background: var(--bg); color: var(--text); border: 1px solid var(--border);
     border-radius: 6px; padding: 4px 8px; font-size: 12px; width: 84px; text-align: right;
     font-variant-numeric: tabular-nums; }
+  .pricing-table .pricing-input { width: calc(7ch + 18px); -moz-appearance: textfield; appearance: textfield; }
+  .pricing-table .pricing-input::-webkit-inner-spin-button,
+  .pricing-table .pricing-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   .pricing-input:focus { border-color: var(--accent); outline: none; }
   .pricing-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px;
     text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
@@ -125,11 +136,14 @@ export const settingsPageHtml = `<!DOCTYPE html>
   .add-btn { background: var(--accent); border: none; color: #fff; border-radius: 6px;
     padding: 5px 14px; font-size: 12px; font-weight: 500; cursor: pointer; }
   .pricing-note { font-size: 11px; color: var(--muted); margin-top: 12px; line-height: 1.6; }
+  /* An executable path is one long unbroken string; on a phone it would widen
+     the whole page rather than wrap. */
+  #claude-exe-card code { overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
 ${profileBarHtml}
-<div class="content">
+<div class="container">
   <h1>Routing</h1>
   <p class="subtitle" style="max-width:720px;line-height:1.6">
     How unpinned requests choose an account. <strong style="color:var(--text)">Active</strong> uses the manually
@@ -201,6 +215,53 @@ ${profileBarHtml}
   </p>
   <div class="adapter-card" id="telemetry-card">
     <div id="telemetry-body">Loading…</div>
+  </div>
+
+  <h1 style="margin-top:40px">Updates</h1>
+  <p class="subtitle" style="max-width:720px;line-height:1.6">
+    Meridian is installed and updated by hand, so an instance can sit on an old version for weeks without
+    anyone noticing. Switch this on and it asks the npm registry once a day whether a newer version is
+    published; the site header then says so, beside the version it is running. Off unless you turn it on —
+    nothing contacts the registry until then. The header shows the running version either way.
+  </p>
+  <div class="adapter-card" id="updates-card">
+    <div id="updates-body">Loading…</div>
+  </div>
+
+  <h1 style="margin-top:40px">Claude Code Executable</h1>
+  <p class="subtitle" style="max-width:720px;line-height:1.6">
+    Which Claude Code runs each request. <strong style="color:var(--text)">System</strong> uses the <code>claude</code>
+    on your PATH, so an installation newer than Meridian's own copy can serve a model that copy is too old for; Meridian's
+    copy is used when there is none. <strong style="color:var(--text)">Bundled</strong> uses the copy Meridian ships with,
+    the version its Agent SDK was tested against, and falls back to PATH. <strong style="color:var(--text)">Custom</strong>
+    runs the executable at a path you choose. A change applies to the next request without a restart; requests already
+    running finish on the executable they started with. <code>MERIDIAN_CLAUDE_PATH</code>, when set, overrides this choice.
+  </p>
+  <div class="adapter-card" id="claude-exe-card">
+    <div id="claude-exe-body">Loading…</div>
+  </div>
+
+  <h1 style="margin-top:40px">Site Header</h1>
+  <p class="subtitle" style="max-width:720px;line-height:1.6">
+    With several Meridian instances open in tabs, they all look the same. Switch this on and the header names
+    the machine this one runs on, beside its status. Off unless you turn it on, because the hostname is then
+    also reported by <code>/health</code>, which answers without the API key.
+  </p>
+  <div class="adapter-card" id="header-card">
+    <div id="header-body">Loading…</div>
+  </div>
+
+  <h1 style="margin-top:40px">Layout</h1>
+  <p class="subtitle" style="max-width:720px;line-height:1.6">
+    How much of the window these pages use. <strong style="color:var(--text)">Contained</strong> keeps every page in
+    a centered column, the way Meridian has always looked. <strong style="color:var(--text)">Wide</strong> uses the
+    whole window, for a big monitor and many accounts: the home page fits more account cards on each row at about the
+    same size, and Profiles lays its larger cards out side by side, two to four to a row depending on the screen.
+    Phones get one column either way. The choice is saved on this Meridian, so every browser that opens it sees the same
+    layout. Other pages pick it up on their next load; this one switches as soon as you choose.
+  </p>
+  <div class="adapter-card" id="layout-card">
+    <div id="layout-body">Loading…</div>
   </div>
 </div>
 
@@ -665,10 +726,193 @@ async function putTelemetry(body) {
   await loadTelemetry();
 }
 
+async function loadUpdates() {
+  const cfg = await (await fetch('/settings/api/updates')).json();
+  const build = cfg.build || {};
+
+  let state;
+  if (cfg.envOptOut) state = 'forced off';
+  else if (!cfg.checkForUpdates) state = 'not checking';
+  else if (!build.latest) state = 'checking…';
+  else state = build.updateAvailable ? telemetryEsc(build.latest) + ' available' : 'up to date';
+
+  document.getElementById('updates-body').innerHTML = telemetryRow('Check for updates',
+    '<input type="checkbox" id="upd-enabled"' + (cfg.checkForUpdates ? ' checked' : '') + (cfg.envOptOut ? ' disabled' : '') + '>',
+    state,
+    cfg.envOptOut ? ' <span style="font-size:11px;color:var(--yellow)">(MERIDIAN_NO_UPDATE_CHECK=1 wins over this setting)</span>' : '')
+    + '<div class="pricing-note" style="margin-top:4px">Running ' + telemetryEsc(build.version || 'unknown')
+      + (build.source && build.source !== 'npm' ? ' from a ' + telemetryEsc(build.source) + ' build; the header shows its separate release and runtime provenance' : '')
+      + '.</div>';
+
+  const box = document.getElementById('upd-enabled');
+  if (box && !cfg.envOptOut) box.addEventListener('change', (e) => putUpdates(e.target.checked));
+}
+
+async function putUpdates(checkForUpdates) {
+  const res = await fetch('/settings/api/updates', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ checkForUpdates }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.error || 'Failed to save update settings');
+  } else {
+    showSaved();
+    if (window.meridianHeaderRefresh) window.meridianHeaderRefresh();
+  }
+  await loadUpdates();
+}
+
+function claudeExeCandidate(c) {
+  if (!c || !c.path) return '<span style="color:var(--muted)">' + telemetryEsc((c && c.detail) || 'not available') + '</span>';
+  return '<code>' + telemetryEsc(c.path) + '</code> '
+    + (c.version ? telemetryEsc(c.version) : '<span style="color:var(--yellow)">' + telemetryEsc(c.detail || 'version unknown') + '</span>');
+}
+
+async function loadClaudeExecutable() {
+  let cfg;
+  try {
+    const response = await fetch('/settings/api/claude-executable');
+    cfg = await response.json();
+    if (!response.ok) throw new Error(cfg.error || 'Failed to load the Claude Code executable');
+  } catch (error) {
+    document.getElementById('claude-exe-body').innerHTML = '<div role="alert" style="color:var(--red)">'
+      + telemetryEsc(error.message || 'Failed to load the Claude Code executable')
+      + '</div><button class="add-btn" id="claude-exe-retry" style="margin-top:12px">Retry</button>';
+    document.getElementById('claude-exe-retry').addEventListener('click', loadClaudeExecutable);
+    return;
+  }
+  const cands = cfg.candidates || {};
+  const modes = cfg.modes || ['system', 'bundled', 'custom'];
+  const select = '<select id="claude-exe-mode" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px">'
+    + modes.map(m => '<option value="' + m + '"' + (cfg.mode === m ? ' selected' : '') + '>' + m + '</option>').join('')
+    + '</select>';
+  const active = cfg.active
+    ? claudeExeCandidate(cfg.active) + ' <span style="color:var(--muted)">(' + telemetryEsc(cfg.active.source) + ')</span>'
+    : '<span style="color:var(--red)">' + telemetryEsc(cfg.activeError || 'none resolved') + '</span>';
+  const envNote = !cfg.envOverride ? ''
+    : ' <span style="font-size:11px;color:var(--yellow)">('
+      + (cfg.active && cfg.active.source === 'env'
+        ? 'MERIDIAN_CLAUDE_PATH wins over this setting'
+        : 'MERIDIAN_CLAUDE_PATH is set but not used: ' + telemetryEsc(cfg.envOverride.detail || 'it cannot run'))
+      + ')</span>';
+  let h = telemetryRow('Executable', select, active, envNote);
+  h += '<div class="pricing-note" style="margin-top:4px">System: ' + claudeExeCandidate(cands.system) + '</div>';
+  h += '<div class="pricing-note" style="margin-top:4px">Bundled: ' + claudeExeCandidate(cands.bundled) + '</div>';
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap">'
+    + '<label for="claude-exe-path" style="color:var(--muted);font-size:13px;width:150px">Custom path</label>'
+    + '<input type="text" class="pricing-input" id="claude-exe-path" style="width:360px;max-width:100%;text-align:left"'
+    + ' placeholder="/absolute/path/to/claude" value="' + telemetryEsc(cfg.customPath || '') + '">'
+    + '<button class="add-btn" id="claude-exe-use">Use this path</button>'
+    + '</div>';
+  if (cfg.customPath) h += '<div class="pricing-note" style="margin-top:4px">Custom: ' + claudeExeCandidate(cands.custom) + '</div>';
+  document.getElementById('claude-exe-body').innerHTML = h;
+
+  const pathInput = document.getElementById('claude-exe-path');
+  const chosenPath = () => pathInput.value.trim() || undefined;
+  document.getElementById('claude-exe-mode').addEventListener('change', (e) => {
+    putClaudeExecutable(e.target.value === 'custom' ? { mode: 'custom', path: chosenPath() } : { mode: e.target.value });
+  });
+  document.getElementById('claude-exe-use').addEventListener('click', () => putClaudeExecutable({ mode: 'custom', path: chosenPath() }));
+}
+
+// Saving runs the chosen executable's --version first, which a cold binary can
+// take a while to answer, so the controls stay disabled until the reply.
+async function putClaudeExecutable(body) {
+  document.querySelectorAll('#claude-exe-body select, #claude-exe-body input, #claude-exe-body button')
+    .forEach(control => { control.disabled = true; });
+  try {
+    const res = await fetch('/settings/api/claude-executable', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Failed to save the Claude Code executable');
+    } else {
+      showSaved();
+    }
+  } catch {
+    alert('Failed to save the Claude Code executable');
+  }
+  await loadClaudeExecutable();
+}
+
+async function loadHeaderSettings() {
+  const cfg = await (await fetch('/settings/api/header')).json();
+  document.getElementById('header-body').innerHTML = telemetryRow('Show hostname',
+    '<input type="checkbox" id="hdr-hostname" aria-label="Show hostname"' + (cfg.showHostname ? ' checked' : '') + '>',
+    cfg.showHostname ? 'shown' : 'hidden',
+    ' <span style="font-size:12px;color:var(--muted)">This machine: <code>' + telemetryEsc(cfg.hostname || 'unknown') + '</code></span>');
+  document.getElementById('hdr-hostname').addEventListener('change', (e) => putHeaderSettings(e.target.checked));
+}
+
+async function putHeaderSettings(showHostname) {
+  const checkbox = document.getElementById('hdr-hostname');
+  checkbox.disabled = true;
+  try {
+    const res = await fetch('/settings/api/header', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ showHostname }),
+    });
+    if (!res.ok) {
+      checkbox.checked = !showHostname;
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Failed to save header settings');
+    } else {
+      showSaved();
+      if (window.meridianHeaderRefresh) window.meridianHeaderRefresh();
+    }
+  } catch {
+    checkbox.checked = !showHostname;
+    alert('Failed to save header settings');
+  } finally {
+    try { await loadHeaderSettings(); }
+    catch { alert('Failed to reload header settings'); }
+    checkbox.disabled = false;
+  }
+}
+
+async function loadLayout() {
+  const cfg = await (await fetch('/settings/api/layout')).json();
+  const el = document.getElementById('layout-body');
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:12px">'
+    + '<label for="layout-mode" style="color:var(--muted);font-size:13px;width:90px">Layout</label>'
+    + '<select id="layout-mode" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px">'
+    + (cfg.layouts || ['contained', 'wide']).map(l => '<option value="'+l+'"'+(cfg.layout===l?' selected':'')+'>'+l+'</option>').join('')
+    + '</select></div>';
+  document.getElementById('layout-mode').addEventListener('change', (e) => putLayout(e.target.value));
+}
+
+async function putLayout(layout) {
+  const res = await fetch('/settings/api/layout', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ layout }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.error || 'Failed to save the layout');
+  } else {
+    const saved = await res.json();
+    if (saved.layout === 'contained') document.documentElement.removeAttribute('data-layout');
+    else document.documentElement.setAttribute('data-layout', saved.layout);
+    showSaved();
+  }
+  await loadLayout();
+}
+
 loadConfig();
 loadPricing();
 loadRouting();
 loadTelemetry();
+loadUpdates();
+loadClaudeExecutable();
+loadHeaderSettings();
+loadLayout();
 ${profileBarJs}
 </script>
 </body>
